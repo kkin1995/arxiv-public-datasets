@@ -36,19 +36,17 @@ import xml.etree.ElementTree as ET
 
 from arxiv_public_data.config import LOGGER, DIR_BASE
 
-log = LOGGER.getChild("metadata")
+log = LOGGER.getChild('metadata')
 
-URL_ARXIV_OAI = "https://export.arxiv.org/oai2"
-URL_CITESEER_OAI = "http://citeseerx.ist.psu.edu/oai2"
+URL_ARXIV_OAI = 'https://export.arxiv.org/oai2'
+URL_CITESEER_OAI = 'http://citeseerx.ist.psu.edu/oai2'
 OAI_XML_NAMESPACES = {
-    "OAI": "http://www.openarchives.org/OAI/2.0/",
-    "arXiv": "http://arxiv.org/OAI/arXivRaw/",
+    'OAI': 'http://www.openarchives.org/OAI/2.0/',
+    'arXiv': 'http://arxiv.org/OAI/arXivRaw/'
 }
 
-
-def get_list_record_chunk(
-    resumptionToken=None, harvest_url=URL_ARXIV_OAI, metadataPrefix="arXivRaw"
-):
+def get_list_record_chunk(resumptionToken=None, harvest_url=URL_ARXIV_OAI,
+                          metadataPrefix='arXivRaw'):
     """
     Query OIA API for the metadata of 1000 Arxiv article
 
@@ -62,12 +60,12 @@ def get_list_record_chunk(
         record_chunks : str
             metadata of 1000 arXiv articles as an XML string
     """
-    parameters = {"verb": "ListRecords"}
+    parameters = {'verb': 'ListRecords'}
 
     if resumptionToken:
-        parameters["resumptionToken"] = resumptionToken
+        parameters['resumptionToken'] = resumptionToken
     else:
-        parameters["metadataPrefix"] = metadataPrefix
+        parameters['metadataPrefix'] = metadataPrefix
 
     response = requests.get(harvest_url, params=parameters)
 
@@ -75,28 +73,26 @@ def get_list_record_chunk(
         return response.text
 
     if response.status_code == 503:
-        secs = int(response.headers.get("Retry-After", 20)) * 1.5
-        log.info("Requested to wait, waiting {} seconds until retry...".format(secs))
+        secs = int(response.headers.get('Retry-After', 20)) * 1.5
+        log.info('Requested to wait, waiting {} seconds until retry...'.format(secs))
 
         time.sleep(secs)
         return get_list_record_chunk(resumptionToken=resumptionToken)
     else:
         raise Exception(
-            "Unknown error in HTTP request {}, status code: {}".format(
+            'Unknown error in HTTP request {}, status code: {}'.format(
                 response.url, response.status_code
             )
         )
 
-
 def _record_element_text(elm, name):
-    """XML helper function for extracting text from leaf (single-node) elements"""
-    item = elm.find("arXiv:{}".format(name), OAI_XML_NAMESPACES)
+    """ XML helper function for extracting text from leaf (single-node) elements """
+    item = elm.find('arXiv:{}'.format(name), OAI_XML_NAMESPACES)
     return item.text if item is not None else None
 
-
 def _record_element_all(elm, name):
-    """XML helper function for extracting text from queries with multiple nodes"""
-    return elm.findall("arXiv:{}".format(name), OAI_XML_NAMESPACES)
+    """ XML helper function for extracting text from queries with multiple nodes """
+    return elm.findall('arXiv:{}'.format(name), OAI_XML_NAMESPACES)
 
 
 def _record_subelement_text(elm, name, subname):
@@ -126,26 +122,18 @@ def parse_record(elm):
             report-no, categories, and version
     """
     text_keys = [
-        "id",
-        "submitter",
-        "authors",
-        "title",
-        "comments",
-        "journal-ref",
-        "doi",
-        "abstract",
-        "report-no",
+        'id', 'submitter', 'authors', 'title', 'comments',
+        'journal-ref', 'doi', 'abstract', 'report-no'
     ]
     output = {key: _record_element_text(elm, key) for key in text_keys}
-    output["categories"] = [
-        i.text for i in (_record_element_all(elm, "categories") or [])
+    output['categories'] = [
+        i.text for i in (_record_element_all(elm, 'categories') or [])
     ]
-    output["versions"] = [
-        i.attrib["version"] for i in _record_element_all(elm, "version")
+    output['versions'] = [
+        i.attrib['version'] for i in _record_element_all(elm, 'version')
     ]
     output["versions_dates"] = _record_subelement_text(elm, "version", "date")
     return output
-
 
 def parse_xml_listrecords(root):
     """
@@ -165,36 +153,39 @@ def parse_xml_listrecords(root):
             resumptionToken is a string which is fed into the subsequent query
     """
     resumptionToken = root.find(
-        "OAI:ListRecords/OAI:resumptionToken", OAI_XML_NAMESPACES
+        'OAI:ListRecords/OAI:resumptionToken',
+        OAI_XML_NAMESPACES
     )
-    resumptionToken = resumptionToken.text if resumptionToken is not None else ""
+    resumptionToken = resumptionToken.text if resumptionToken is not None else ''
 
     records = root.findall(
-        "OAI:ListRecords/OAI:record/OAI:metadata/arXiv:arXivRaw", OAI_XML_NAMESPACES
+        'OAI:ListRecords/OAI:record/OAI:metadata/arXiv:arXivRaw',
+        OAI_XML_NAMESPACES
     )
     records = [parse_record(p) for p in records]
 
     return records, resumptionToken
 
-
 def check_xml_errors(root):
-    """Check for, log, and raise any OAI service errors in the XML"""
-    error = root.find("OAI:error", OAI_XML_NAMESPACES)
+    """ Check for, log, and raise any OAI service errors in the XML """
+    error = root.find('OAI:error', OAI_XML_NAMESPACES)
 
     if error is not None:
-        raise RuntimeError("OAI service returned error: {}".format(error.text))
-
+        raise RuntimeError(
+            'OAI service returned error: {}'.format(error.text)
+        )
 
 def find_default_locations():
-    outfile = os.path.join(DIR_BASE, "arxiv-metadata-oai-*.json.gz")
-    resume = os.path.join(DIR_BASE, "arxiv-metadata-oai-*.json.gz-resumptionToken.txt")
+    outfile = os.path.join(DIR_BASE, 'arxiv-metadata-oai-*.json.gz')
+    resume = os.path.join(
+        DIR_BASE, 'arxiv-metadata-oai-*.json.gz-resumptionToken.txt'
+    )
     fn_outfile = sorted(glob.glob(outfile))
     fn_resume = sorted(glob.glob(resume))
 
     if len(fn_outfile) > 0:
         return fn_outfile[-1]
     return None
-
 
 def all_of_arxiv(outfile=None, resumptionToken=None, autoresume=True):
     """
@@ -212,20 +203,20 @@ def all_of_arxiv(outfile=None, resumptionToken=None, autoresume=True):
             If true, it looks for a saved resumptionToken in the file
             <outfile>-resumptionToken.txt
     """
-    date = str(datetime.datetime.now()).split(" ")[0]
+    date = str(datetime.datetime.now()).split(' ')[0]
 
     outfile = (
-        outfile  # user-supplied
-        or find_default_locations()  # already in progress
-        or os.path.join(
-            DIR_BASE, "arxiv-metadata-oai-{}.json.gz".format(date)
-        )  # new file
+        outfile or # user-supplied
+        find_default_locations() or # already in progress 
+        os.path.join(
+            DIR_BASE, 'arxiv-metadata-oai-{}.json.gz'.format(date)
+        ) # new file
     )
 
     directory = os.path.split(outfile)[0]
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
-    tokenfile = "{}-resumptionToken.txt".format(outfile)
+    tokenfile = '{}-resumptionToken.txt'.format(outfile)
     chunk_index = 0
     total_records = 0
 
@@ -234,16 +225,14 @@ def all_of_arxiv(outfile=None, resumptionToken=None, autoresume=True):
     resumptionToken = None
     if autoresume:
         try:
-            resumptionToken = open(tokenfile, "r").read()
+            resumptionToken = open(tokenfile, 'r').read()
         except Exception as e:
             log.warn("No tokenfile found '{}'".format(tokenfile))
             log.info("Starting download from scratch...")
 
     while True:
-        log.info(
-            'Index {:4d} | Records {:7d} | resumptionToken "{}"'.format(
-                chunk_index, total_records, resumptionToken
-            )
+        log.info('Index {:4d} | Records {:7d} | resumptionToken "{}"'.format(
+            chunk_index, total_records, resumptionToken)
         )
         xml_root = ET.fromstring(get_list_record_chunk(resumptionToken))
         check_xml_errors(xml_root)
@@ -252,56 +241,53 @@ def all_of_arxiv(outfile=None, resumptionToken=None, autoresume=True):
         chunk_index = chunk_index + 1
         total_records = total_records + len(records)
 
-        with gzip.open(outfile, "at", encoding="utf-8") as fout:
+        with gzip.open(outfile, 'at', encoding='utf-8') as fout:
             for rec in records:
-                fout.write(json.dumps(rec) + "\n")
+                fout.write(json.dumps(rec) + '\n')
         if resumptionToken:
-            with open(tokenfile, "w") as fout:
+            with open(tokenfile, 'w') as fout:
                 fout.write(resumptionToken)
         else:
-            log.info("No resumption token, query finished")
+            log.info('No resumption token, query finished')
             return
 
         time.sleep(12)  # OAI server usually requires a 10s wait
 
-
 def load_metadata(infile=None):
     """
-    Generator function to process a gzipped JSONL file saved by
-    all_of_arxiv.
-    Yields one JSON object at a time from each line.
+    Load metadata saved by all_of_arxiv, as a list of lines of gzip compressed
+    json.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
         infile : str or None
-            The file path to the gzipped JSONL file.
+            name of file saved by gzip. If None, one is attempted to be found
+            in the expected location with the expected name.
 
-    Yields:
-    ------
-    article_attriutes : dict
-        A Python dictionary representing the JSON object.
+    Returns
+    -------
+        article_attributes : list
+            list of dicts, each of which contains the metadata attributes of
+            the ArXiv articles
     """
     fname = infile or find_default_locations()
-    with gzip.open(fname, "rt", encoding="utf-8") as fin:
-        for line in fin:
-            yield json.loads(line)
-
+    with gzip.open(fname, 'rt', encoding='utf-8') as fin:
+        return [json.loads(line) for line in fin.readlines()]
 
 def hash_abstracts(metadata):
-    """Replace abstracts with their MD5 hash for legal distribution"""
+    """ Replace abstracts with their MD5 hash for legal distribution """
     metadata_no_abstract = []
     for i in range(len(metadata)):
         m = metadata[i].copy()
-        m["abstract_md5"] = hashlib.md5(m["abstract"].encode()).hexdigest()
-        del m["abstract"]
+        m['abstract_md5'] = hashlib.md5(m['abstract'].encode()).hexdigest()
+        del m['abstract']
         metadata_no_abstract.append(m)
     return metadata_no_abstract
 
-
 def validate_abstract_hashes(metadata, metadata_no_abstract):
-    """Validate that abstracts match the hashes"""
+    """ Validate that abstracts match the hashes """
     for m, n in zip(metadata, metadata_no_abstract):
-        md5 = hashlib.md5(m["abstract"].encode()).hexdigest()
-        if not md5 == n["abstract_md5"]:
+        md5 = hashlib.md5(m['abstract'].encode()).hexdigest()
+        if not md5 == n['abstract_md5']:
             return False
     return True
