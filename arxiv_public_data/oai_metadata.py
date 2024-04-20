@@ -255,24 +255,24 @@ def all_of_arxiv(outfile=None, resumptionToken=None, autoresume=True):
 
 def load_metadata(infile=None):
     """
-    Load metadata saved by all_of_arxiv, as a list of lines of gzip compressed
-    json.
+    Generator function to process a gzipped JSONL file saved by
+    all_of_arxiv.
+    Yields one JSON object at a time from each line.
 
-    Parameters
-    ----------
+    Parameters:
+    -----------
         infile : str or None
-            name of file saved by gzip. If None, one is attempted to be found
-            in the expected location with the expected name.
+            The file path to the gzipped JSONL file.
 
-    Returns
-    -------
-        article_attributes : list
-            list of dicts, each of which contains the metadata attributes of
-            the ArXiv articles
+    Yields:
+    ------
+    article_attriutes : dict
+        A Python dictionary representing the JSON object.
     """
     fname = infile or find_default_locations()
-    with gzip.open(fname, 'rt', encoding='utf-8') as fin:
-        return [json.loads(line) for line in fin.readlines()]
+    with gzip.open(fname, "rt", encoding="utf-8") as fin:
+        for line in fin:
+            yield json.loads(line)
 
 def hash_abstracts(metadata):
     """ Replace abstracts with their MD5 hash for legal distribution """
